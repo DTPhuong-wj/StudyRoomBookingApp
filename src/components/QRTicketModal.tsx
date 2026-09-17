@@ -7,10 +7,11 @@ import {
   StyleSheet,
   ScrollView,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { Reservation } from '../types';
-import { X, CheckCircle2, ShieldCheck, MapPin, Clock, Users, Calendar } from 'lucide-react-native';
+import { X, CheckCircle2, ShieldCheck, MapPin, Calendar, Users } from 'lucide-react-native';
 
 interface QRTicketModalProps {
   visible: boolean;
@@ -25,6 +26,9 @@ export const QRTicketModal: React.FC<QRTicketModalProps> = ({
   onClose,
   onCheckIn,
 }) => {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 640;
+
   if (!reservation) return null;
 
   const isCheckedIn = reservation.status === 'checked-in';
@@ -36,8 +40,8 @@ export const QRTicketModal: React.FC<QRTicketModalProps> = ({
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
+      <View style={[styles.modalOverlay, isDesktop && styles.modalOverlayDesktop]}>
+        <View style={[styles.modalCard, isDesktop && styles.modalCardDesktop]}>
           {/* Header */}
           <View style={styles.headerRow}>
             <View style={styles.brandGroup}>
@@ -138,6 +142,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'flex-end',
   },
+  modalOverlayDesktop: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
   modalCard: {
     backgroundColor: '#0F172A',
     borderTopLeftRadius: 24,
@@ -146,6 +155,15 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     borderColor: '#1E293B',
+    width: '100%',
+  },
+  modalCardDesktop: {
+    maxWidth: 500,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
   },
   headerRow: {
     flexDirection: 'row',

@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
 } from 'react-native';
 import { TimeSlot } from '../types';
 import { TIME_SLOTS } from '../data/mockRooms';
@@ -54,6 +55,14 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
 }) => {
   const dates = getNext7Days();
   const { isSlotBooked } = useBookingStore();
+  const { width } = useWindowDimensions();
+
+  // Responsive slot width calculation
+  const slotWidthStyle = React.useMemo(() => {
+    if (width >= 900) return { width: '31%' };
+    if (width >= 600) return { width: '31%' };
+    return { width: '48%' };
+  }, [width]);
 
   return (
     <View style={styles.container}>
@@ -102,7 +111,7 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
         <Text style={styles.sectionTitle}>2-Hour Discrete Slots ({selectedDate})</Text>
       </View>
 
-      {/* Time Slot Grid */}
+      {/* Responsive Time Slot Grid */}
       <View style={styles.gridContainer}>
         {TIME_SLOTS.map((slot) => {
           const booked = isSlotBooked(roomId, selectedDate, slot.id);
@@ -114,6 +123,7 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
               disabled={booked}
               style={[
                 styles.slotCard,
+                slotWidthStyle as any,
                 isSelected && styles.slotSelected,
                 booked && styles.slotDisabled,
               ]}
@@ -206,7 +216,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   slotCard: {
-    width: '48%',
     backgroundColor: '#1E293B',
     borderRadius: 12,
     padding: 12,

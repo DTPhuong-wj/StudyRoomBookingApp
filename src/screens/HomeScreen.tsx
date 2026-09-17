@@ -6,14 +6,17 @@ import {
   StyleSheet,
   SafeAreaView,
   StatusBar,
+  useWindowDimensions,
+  ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { Header } from '../components/Header';
 import { FilterBar } from '../components/FilterBar';
 import { RoomCard } from '../components/RoomCard';
-import { MOCK_ROOMS } from '../data/mockRooms';
 import { useFilterStore } from '../store/useFilterStore';
+import { useRoomsQuery } from '../hooks/useRoomsQuery';
 import { Room } from '../types';
-import { Sparkles, Layers } from 'lucide-react-native';
+import { Sparkles, Layers, RefreshCw } from 'lucide-react-native';
 
 interface HomeScreenProps {
   onSelectRoom: (room: Room) => void;
@@ -24,71 +27,31 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onSelectRoom,
   onPressProfile,
 }) => {
-  const { searchQuery, selectedBuilding, capacityRange, selectedEquipment } =
-    useFilterStore();
+  const filterState = useFilterStore();
+  const { width } = useWindowDimensions();
 
-  // Filter computation
-  const filteredRooms = useMemo(() => {
-    return MOCK_ROOMS.filter((room) => {
-      // Search Query filter
-      if (searchQuery.trim() !== '') {
-        const query = searchQuery.toLowerCase();
-        const matchesName = room.name.toLowerCase().includes(query);
-        const matchesDesc = room.description.toLowerCase().includes(query);
-        const matchesEquip = room.equipment.some((e) =>
-          e.toLowerCase().includes(query)
-        );
-        if (!matchesName && !matchesDesc && !matchesEquip) return false;
-      }
+  // Server state query via TanStack React Query
+  const { data: rooms = [], isLoading, isRefetching, refetch } = useRoomsQuery(filterState);
 
-      // Building Filter
-      if (selectedBuilding !== 'ALL' && room.building !== selectedBuilding) {
-        return false;
-      }
-
-      // Capacity Range Filter
-      if (capacityRange === 'SMALL' && (room.capacity < 2 || room.capacity > 4)) {
-        return false;
-      }
-      if (capacityRange === 'MEDIUM' && (room.capacity < 5 || room.capacity > 10)) {
-        return false;
-      }
-      if (capacityRange === 'LARGE' && room.capacity < 11) {
-        return false;
-      }
-
-      // Equipment Filter
-      if (selectedEquipment.length > 0) {
-        const hasAllEquipment = selectedEquipment.every((eq) =>
-          room.equipment.includes(eq)
-        );
-        if (!hasAllEquipment) return false;
-      }
-
-      return true;
-    });
-  }, [searchQuery, selectedBuilding, capacityRange, selectedEquipment]);
+  // Responsive columns calculation
+  const numColumns = useMemo(() => {
+    if (width >= 960) return 3;
+    if (width >= 640) return 2;
+    return 1;
+  }, [width]);
 
   // Memoized Render Item for 60fps scrolling
   const renderRoomItem = useCallback(
     ({ item }: { item: Room }) => (
-      <RoomCard room={item} onPressSelect={onSelectRoom} />
+      <View style={numColumns > 1 ? styles.gridItemWrapper : styles.singleItemWrapper}>
+        <RoomCard room={item} onPressSelect={onSelectRoom} />
+      </View>
     ),
-    [onSelectRoom]
+    [onSelectRoom, numColumns]
   );
 
   // Key extractor
   const keyExtractor = useCallback((item: Room) => item.id, []);
-
-  // Fixed layout height estimation for FlatList optimization
-  const getItemLayout = useCallback(
-    (_: any, index: number) => ({
-      length: 290, // Card approx height + margin
-      offset: 290 * index,
-      index,
-    }),
-    []
-  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -96,44 +59,62 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       <Header onPressProfile={onPressProfile} />
 
       <View style={styles.container}>
-        {/* Filter Bar */}
+        {/* Filter Bar with Search & Filter Dropdown */}
         <FilterBar />
 
-        {/* Results Header */}
+        {/* Results & TanStack Query Status Bar */}
         <View style={styles.resultsHeader}>
           <View style={styles.resultsCountGroup}>
             <Layers size={14} color="#3B82F6" />
             <Text style={styles.resultsCountText}>
-              Showing <Text style={styles.highlightCount}>{filteredRooms.length}</Text> Study Rooms
+              Showing <Text style={styles.highlightCount}>{rooms.length}</Text> Study Rooms
             </Text>
           </View>
-          <View style={styles.fpsBadge}>
-            <Sparkles size={11} color="#10B981" />
-            <Text style={styles.fpsBadgeText}>60 FPS FlatList</Text>
+
+          <View style={styles.rightHeaderGroup}>
+            <TouchableOpacity onPress={() => refetch()} style={styles.refreshBtn}>
+              <RefreshCw size={12} color="#94A3B8" style={isRefetching ? styles.spinning : undefined} />
+            </TouchableOpacity>
+
+            <View style={styles.fpsBadge}>
+              <Sparkles size={11} color="#10B981" />
+              <Text style={styles.fpsBadgeText}>
+                TanStack Query Cached
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* 60fps FlatList Feed */}
-        <FlatList
-          data={filteredRooms}
-          renderItem={renderRoomItem}
-          keyExtractor={keyExtractor}
-          getItemLayout={getItemLayout}
-          initialNumToRender={5}
-          maxToRenderPerBatch={5}
-          windowSize={5}
-          removeClippedSubviews={true}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyTitle}>No matching study rooms found</Text>
-              <Text style={styles.emptySub}>
-                Try loosening your building, capacity, or equipment filters.
-              </Text>
-            </View>
-          }
-        />
+        {/* Loading State */}
+        {isLoading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color="#2563EB" />
+            <Text style={styles.loadingText}>Fetching VKU campus study rooms...</Text>
+          </View>
+        ) : (
+          /* Responsive 60fps FlatList Feed */
+          <FlatList
+            key={`grid-${numColumns}`}
+            data={rooms}
+            renderItem={renderRoomItem}
+            keyExtractor={keyExtractor}
+            numColumns={numColumns}
+            initialNumToRender={6}
+            maxToRenderPerBatch={6}
+            windowSize={5}
+            removeClippedSubviews={true}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyTitle}>No matching study rooms found</Text>
+                <Text style={styles.emptySub}>
+                  Try loosening your building, capacity, or equipment filters.
+                </Text>
+              </View>
+            }
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -170,6 +151,19 @@ const styles = StyleSheet.create({
     color: '#F8FAFC',
     fontWeight: '800',
   },
+  rightHeaderGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  refreshBtn: {
+    padding: 4,
+    backgroundColor: '#1E293B',
+    borderRadius: 6,
+  },
+  spinning: {
+    opacity: 0.6,
+  },
   fpsBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -187,14 +181,33 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   listContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
     paddingTop: 6,
     paddingBottom: 24,
+  },
+  singleItemWrapper: {
+    width: '100%',
+    paddingHorizontal: 6,
+  },
+  gridItemWrapper: {
+    flex: 1,
+    paddingHorizontal: 6,
+  },
+  loadingBox: {
+    paddingVertical: 60,
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '600',
   },
   emptyContainer: {
     paddingVertical: 60,
     alignItems: 'center',
     paddingHorizontal: 20,
+    width: '100%',
   },
   emptyTitle: {
     color: '#F8FAFC',

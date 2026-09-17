@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,24 +6,25 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Modal,
 } from 'react-native';
 import { useFilterStore } from '../store/useFilterStore';
 import { Building, Equipment } from '../types';
-import { Search, X, SlidersHorizontal } from 'lucide-react-native';
+import { Search, X, ChevronDown, Filter, Check, RotateCcw } from 'lucide-react-native';
 
 const BUILDINGS: { key: Building | 'ALL'; label: string }[] = [
   { key: 'ALL', label: 'All Buildings' },
-  { key: 'A', label: 'Bldg A (IT)' },
-  { key: 'B', label: 'Bldg B (Library)' },
-  { key: 'C', label: 'Bldg C (Languages)' },
-  { key: 'V', label: 'Bldg V (Innovation)' },
+  { key: 'A', label: 'Building A (IT Center)' },
+  { key: 'B', label: 'Building B (Main Library)' },
+  { key: 'C', label: 'Building C (Languages)' },
+  { key: 'V', label: 'Building V (Innovation)' },
 ];
 
 const CAPACITIES: { key: 'ALL' | 'SMALL' | 'MEDIUM' | 'LARGE'; label: string }[] = [
   { key: 'ALL', label: 'Any Capacity' },
-  { key: 'SMALL', label: '2–4 Students' },
-  { key: 'MEDIUM', label: '5–10 Students' },
-  { key: 'LARGE', label: '10+ Students' },
+  { key: 'SMALL', label: '2–4 Seats' },
+  { key: 'MEDIUM', label: '5–10 Seats' },
+  { key: 'LARGE', label: '10+ Seats' },
 ];
 
 const EQUIPMENT_OPTIONS: Equipment[] = [
@@ -48,21 +49,22 @@ export const FilterBar: React.FC = () => {
     resetFilters,
   } = useFilterStore();
 
-  const hasActiveFilters =
-    searchQuery !== '' ||
-    selectedBuilding !== 'ALL' ||
-    capacityRange !== 'ALL' ||
-    selectedEquipment.length > 0;
+  const [filterModalVisible, setFilterModalVisible] = useState<boolean>(false);
+
+  const activeFilterCount =
+    (selectedBuilding !== 'ALL' ? 1 : 0) +
+    (capacityRange !== 'ALL' ? 1 : 0) +
+    selectedEquipment.length;
 
   return (
     <View style={styles.container}>
-      {/* Search Input Bar */}
+      {/* Target Wireframe Top Row: [Search rooms...] and [Filter ▼] */}
       <View style={styles.searchRow}>
         <View style={styles.searchInputWrapper}>
           <Search size={18} color="#94A3B8" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search room name, lab type, GPU..."
+            placeholder="Search rooms..."
             placeholderTextColor="#64748B"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -74,14 +76,21 @@ export const FilterBar: React.FC = () => {
           )}
         </View>
 
-        {hasActiveFilters && (
-          <TouchableOpacity style={styles.resetButton} onPress={resetFilters}>
-            <Text style={styles.resetText}>Reset</Text>
-          </TouchableOpacity>
-        )}
+        {/* Filter ▼ Dropdown Button */}
+        <TouchableOpacity
+          style={[styles.filterDropdownBtn, activeFilterCount > 0 && styles.filterDropdownBtnActive]}
+          onPress={() => setFilterModalVisible(true)}
+          activeOpacity={0.7}
+        >
+          <Filter size={14} color={activeFilterCount > 0 ? '#FFFFFF' : '#94A3B8'} />
+          <Text style={[styles.filterDropdownText, activeFilterCount > 0 && styles.filterDropdownTextActive]}>
+            Filter {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
+          </Text>
+          <ChevronDown size={14} color={activeFilterCount > 0 ? '#FFFFFF' : '#94A3B8'} />
+        </TouchableOpacity>
       </View>
 
-      {/* Building Filter Chips */}
+      {/* Quick Building Filter Chips */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -104,49 +113,102 @@ export const FilterBar: React.FC = () => {
         })}
       </ScrollView>
 
-      {/* Capacity & Equipment Sub-Filter Bar */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipScrollSecondary}
+      {/* Filter Modal Dialog [Filter ▼] */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={filterModalVisible}
+        onRequestClose={() => setFilterModalVisible(false)}
       >
-        {/* Capacity Selector */}
-        {CAPACITIES.map((c) => {
-          const isSelected = capacityRange === c.key;
-          return (
-            <TouchableOpacity
-              key={c.key}
-              style={[styles.subChip, isSelected && styles.subChipActive]}
-              onPress={() => setCapacityRange(c.key)}
-            >
-              <Text style={[styles.subChipText, isSelected && styles.subChipTextActive]}>
-                👥 {c.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <Filter size={18} color="#3B82F6" />
+                <Text style={styles.modalTitle}>Filter Parameters</Text>
+              </View>
+              <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+                <X size={20} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
 
-        {/* Equipment Selector Pills */}
-        {EQUIPMENT_OPTIONS.map((eq) => {
-          const isSelected = selectedEquipment.includes(eq);
-          return (
-            <TouchableOpacity
-              key={eq}
-              style={[styles.subChip, isSelected && styles.subChipActiveEquipment]}
-              onPress={() => toggleEquipment(eq)}
-            >
-              <Text
-                style={[
-                  styles.subChipText,
-                  isSelected && styles.subChipTextActiveEquipment,
-                ]}
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScroll}>
+              {/* Building Selector */}
+              <Text style={styles.sectionLabel}>Campus Building</Text>
+              <View style={styles.gridOptions}>
+                {BUILDINGS.map((b) => {
+                  const isSelected = selectedBuilding === b.key;
+                  return (
+                    <TouchableOpacity
+                      key={b.key}
+                      style={[styles.optionChip, isSelected && styles.optionChipActive]}
+                      onPress={() => setSelectedBuilding(b.key)}
+                    >
+                      <Text style={[styles.optionText, isSelected && styles.optionTextActive]}>
+                        {b.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Capacity Selector */}
+              <Text style={styles.sectionLabel}>Seat Capacity</Text>
+              <View style={styles.gridOptions}>
+                {CAPACITIES.map((c) => {
+                  const isSelected = capacityRange === c.key;
+                  return (
+                    <TouchableOpacity
+                      key={c.key}
+                      style={[styles.optionChip, isSelected && styles.optionChipActive]}
+                      onPress={() => setCapacityRange(c.key)}
+                    >
+                      <Text style={[styles.optionText, isSelected && styles.optionTextActive]}>
+                        {c.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Equipment Selector */}
+              <Text style={styles.sectionLabel}>Equipment & Facilities</Text>
+              <View style={styles.gridOptions}>
+                {EQUIPMENT_OPTIONS.map((eq) => {
+                  const isSelected = selectedEquipment.includes(eq);
+                  return (
+                    <TouchableOpacity
+                      key={eq}
+                      style={[styles.optionChip, isSelected && styles.optionChipActiveEquipment]}
+                      onPress={() => toggleEquipment(eq)}
+                    >
+                      <Text style={[styles.optionText, isSelected && styles.optionTextActiveEquipment]}>
+                        {isSelected ? '✓ ' : ''}{eq}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+
+            {/* Modal Actions */}
+            <View style={styles.modalFooter}>
+              <TouchableOpacity style={styles.resetModalBtn} onPress={resetFilters}>
+                <RotateCcw size={14} color="#94A3B8" />
+                <Text style={styles.resetModalText}>Reset All</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.applyModalBtn}
+                onPress={() => setFilterModalVisible(false)}
               >
-                ⚡ {eq}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+                <Text style={styles.applyModalText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -184,21 +246,32 @@ const styles = StyleSheet.create({
     color: '#F8FAFC',
     fontSize: 13,
   },
-  resetButton: {
+  filterDropdownBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1E293B',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#334155',
-    borderRadius: 10,
+    height: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
-  resetText: {
+  filterDropdownBtnActive: {
+    backgroundColor: '#2563EB',
+    borderColor: '#3B82F6',
+  },
+  filterDropdownText: {
     color: '#94A3B8',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  filterDropdownTextActive: {
+    color: '#FFFFFF',
   },
   chipScroll: {
     paddingHorizontal: 16,
     gap: 8,
-    marginBottom: 8,
   },
   chip: {
     backgroundColor: '#1E293B',
@@ -220,37 +293,112 @@ const styles = StyleSheet.create({
   chipTextActive: {
     color: '#FFFFFF',
   },
-  chipScrollSecondary: {
-    paddingHorizontal: 16,
-    gap: 6,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
-  subChip: {
+  modalContent: {
+    width: '100%',
+    maxWidth: 500,
+    backgroundColor: '#0F172A',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modalTitle: {
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modalScroll: {
+    marginBottom: 16,
+  },
+  sectionLabel: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  gridOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  optionChip: {
     backgroundColor: '#1E293B',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#334155',
   },
-  subChipActive: {
-    backgroundColor: '#1E3A8A',
+  optionChipActive: {
+    backgroundColor: '#2563EB',
     borderColor: '#3B82F6',
   },
-  subChipActiveEquipment: {
+  optionChipActiveEquipment: {
     backgroundColor: '#065F46',
     borderColor: '#10B981',
   },
-  subChipText: {
-    color: '#64748B',
-    fontSize: 11,
-    fontWeight: '500',
+  optionText: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    fontWeight: '600',
   },
-  subChipTextActive: {
-    color: '#93C5FD',
-    fontWeight: '700',
+  optionTextActive: {
+    color: '#FFFFFF',
   },
-  subChipTextActiveEquipment: {
+  optionTextActiveEquipment: {
     color: '#A7F3D0',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#1E293B',
+    paddingTop: 12,
+  },
+  resetModalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  resetModalText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  applyModalBtn: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  applyModalText: {
+    color: '#FFFFFF',
+    fontSize: 13,
     fontWeight: '700',
   },
 });

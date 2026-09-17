@@ -10,25 +10,26 @@ import {
   Switch,
   Platform,
 } from 'react-native';
-import { useUserStore } from '../store/useUserStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { useBookingStore } from '../store/useBookingStore';
 import { requestNotificationPermissions, scheduleCheckInNotification } from '../utils/notifications';
 import {
   ShieldCheck,
   User,
   Mail,
-  GraduationCap,
-  Building,
   Bell,
   RefreshCw,
-  Award,
+  LogOut,
   Layers,
+  CheckCircle2,
 } from 'lucide-react-native';
 
 export const ProfileScreen: React.FC = () => {
-  const { user, switchDemoUser } = useUserStore();
+  const { user, logout } = useAuthStore();
   const { clearAllReservations } = useBookingStore();
   const [notifEnabled, setNotifEnabled] = useState<boolean>(true);
+
+  if (!user) return null;
 
   const handleTestNotification = async () => {
     if (Platform.OS === 'web') {
@@ -48,9 +49,9 @@ export const ProfileScreen: React.FC = () => {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
         {/* Screen Header */}
-        <Text style={styles.screenTitle}>Student Profile & Settings</Text>
+        <Text style={styles.screenTitle}>Student Profile & SSO Settings</Text>
 
-        {/* VKU Student Card */}
+        {/* VKU Official Student / Faculty ID Card */}
         <View style={styles.studentCard}>
           <View style={styles.cardHeader}>
             <View style={styles.vkuLogoBox}>
@@ -58,7 +59,7 @@ export const ProfileScreen: React.FC = () => {
             </View>
             <View>
               <Text style={styles.universityName}>VIETNAM - KOREA UNIVERSITY</Text>
-              <Text style={styles.cardTypeTitle}>STUDENT IDENTIFICATION CARD</Text>
+              <Text style={styles.cardTypeTitle}>OFFICIAL GOOGLE SSO IDENTITY</Text>
             </View>
           </View>
 
@@ -68,33 +69,26 @@ export const ProfileScreen: React.FC = () => {
             </View>
 
             <View style={styles.studentDetails}>
-              <Text style={styles.studentName}>{user.fullName}</Text>
+              <Text style={styles.studentName}>{user.name}</Text>
               <View style={styles.idRow}>
                 <ShieldCheck size={14} color="#60A5FA" />
-                <Text style={styles.studentIdText}>ID: {user.studentId}</Text>
+                <Text style={styles.studentIdText}>
+                  {user.studentId ? `ID: ${user.studentId}` : `Role: ${user.role}`}
+                </Text>
               </View>
 
-              <Text style={styles.majorText}>{user.major}</Text>
+              <View style={styles.emailRow}>
+                <Mail size={12} color="#94A3B8" />
+                <Text style={styles.emailText}>{user.email}</Text>
+              </View>
+
               <Text style={styles.deptText}>{user.department}</Text>
             </View>
           </View>
-        </View>
 
-        {/* Switch Student Profile (Demo Feature) */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Switch Student Profile (Demo)</Text>
-          <Text style={styles.sectionSub}>Test bookings with different VKU student accounts:</Text>
-
-          <View style={styles.switchRow}>
-            <TouchableOpacity style={styles.demoUserBtn} onPress={() => switchDemoUser(0)}>
-              <Text style={styles.demoUserText}>Nguyen Van An (21IT)</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.demoUserBtn} onPress={() => switchDemoUser(1)}>
-              <Text style={styles.demoUserText}>Tran Thi Mai (22SE)</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.demoUserBtn} onPress={() => switchDemoUser(2)}>
-              <Text style={styles.demoUserText}>Le Hoang Nam (23KR)</Text>
-            </TouchableOpacity>
+          <View style={styles.domainValidatedTag}>
+            <CheckCircle2 size={12} color="#10B981" />
+            <Text style={styles.domainValidatedText}>AUTHENTICATED VKU DOMAIN (@vku.udn.vn)</Text>
           </View>
         </View>
 
@@ -131,36 +125,43 @@ export const ProfileScreen: React.FC = () => {
           </View>
 
           <View style={styles.specItem}>
-            <Text style={styles.specKey}>State Engine:</Text>
-            <Text style={styles.specVal}>Zustand + AsyncStorage Persistence</Text>
+            <Text style={styles.specKey}>Server State:</Text>
+            <Text style={styles.specVal}>TanStack React Query v5</Text>
           </View>
           <View style={styles.specItem}>
-            <Text style={styles.specKey}>List Optimization:</Text>
-            <Text style={styles.specVal}>FlatList 60fps (removeClippedSubviews)</Text>
+            <Text style={styles.specKey}>Client State & Storage:</Text>
+            <Text style={styles.specVal}>Zustand + AsyncStorage</Text>
           </View>
           <View style={styles.specItem}>
-            <Text style={styles.specKey}>Conflict Prevention:</Text>
-            <Text style={styles.specVal}>Real-time 2-Hour Slot Collision Engine</Text>
+            <Text style={styles.specKey}>SSO Domain Gate:</Text>
+            <Text style={styles.specVal}>Google Auth (@vku.udn.vn)</Text>
           </View>
           <View style={styles.specItem}>
-            <Text style={styles.specKey}>Booking Pass:</Text>
-            <Text style={styles.specVal}>Interactive SVG QR Code Generator</Text>
+            <Text style={styles.specKey}>Navigation:</Text>
+            <Text style={styles.specVal}>React Navigation 7 (Stack + Tabs)</Text>
           </View>
         </View>
 
-        {/* Reset Store Action */}
-        <TouchableOpacity
-          style={styles.resetBtn}
-          onPress={() => {
-            Alert.alert('Reset App Data', 'This will wipe all cached reservations.', [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Reset', style: 'destructive', onPress: clearAllReservations },
-            ]);
-          }}
-        >
-          <RefreshCw size={16} color="#F43F5E" />
-          <Text style={styles.resetBtnText}>Reset All Local Storage Data</Text>
-        </TouchableOpacity>
+        {/* Actions */}
+        <View style={styles.actionsBox}>
+          <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+            <LogOut size={16} color="#F43F5E" />
+            <Text style={styles.logoutBtnText}>Sign Out of VKU Account</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.resetBtn}
+            onPress={() => {
+              Alert.alert('Reset App Data', 'This will wipe all cached reservations.', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Reset', style: 'destructive', onPress: clearAllReservations },
+              ]);
+            }}
+          >
+            <RefreshCw size={14} color="#64748B" />
+            <Text style={styles.resetBtnText}>Clear Local Cache</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -228,6 +229,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
+    marginBottom: 12,
   },
   avatarCircle: {
     width: 60,
@@ -256,14 +258,36 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  majorText: {
-    color: '#CBD5E1',
+  emailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginVertical: 2,
+  },
+  emailText: {
+    color: '#94A3B8',
     fontSize: 12,
-    fontWeight: '500',
   },
   deptText: {
     color: '#64748B',
     fontSize: 11,
+  },
+  domainValidatedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  domainValidatedText: {
+    color: '#10B981',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   sectionCard: {
     backgroundColor: '#1E293B',
@@ -283,28 +307,6 @@ const styles = StyleSheet.create({
     color: '#F8FAFC',
     fontSize: 14,
     fontWeight: '700',
-  },
-  sectionSub: {
-    color: '#94A3B8',
-    fontSize: 12,
-    marginBottom: 10,
-  },
-  switchRow: {
-    flexDirection: 'column',
-    gap: 8,
-  },
-  demoUserBtn: {
-    backgroundColor: '#0F172A',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  demoUserText: {
-    color: '#93C5FD',
-    fontSize: 12,
-    fontWeight: '600',
   },
   toggleRow: {
     flexDirection: 'row',
@@ -353,20 +355,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  resetBtn: {
+  actionsBox: {
+    gap: 10,
+  },
+  logoutBtn: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 12,
+    paddingVertical: 14,
     backgroundColor: '#1E293B',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#F43F5E',
   },
-  resetBtnText: {
+  logoutBtnText: {
     color: '#F43F5E',
-    fontWeight: '700',
-    fontSize: 13,
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  resetBtn: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+  },
+  resetBtnText: {
+    color: '#64748B',
+    fontWeight: '600',
+    fontSize: 12,
   },
 });
